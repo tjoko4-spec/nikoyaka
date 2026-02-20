@@ -35,14 +35,6 @@
             <i class="fas fa-list"></i>
             <span>収集一覧</span>
         </button>
-        <button class="nav-item" data-view="add">
-            <i class="fas fa-plus-circle"></i>
-            <span>新規登録</span>
-        </button>
-        <button class="nav-item" data-view="ocr">
-            <i class="fas fa-camera"></i>
-            <span>写真読取</span>
-        </button>
         <button class="nav-item" data-view="map">
             <i class="fas fa-map-marked-alt"></i>
             <span>地図表示</span>
@@ -51,6 +43,18 @@
             <i class="fas fa-truck-moving"></i>
             <span>号車管理</span>
         </button>
+        <button class="nav-item" data-view="confirmation">
+            <i class="fas fa-clipboard-check"></i>
+            <span>収集確認</span>
+        </button>
+        <button class="nav-item" data-view="add">
+            <i class="fas fa-plus-circle"></i>
+            <span>新規登録</span>
+        </button>
+        <button class="nav-item" data-view="ocr">
+            <i class="fas fa-camera"></i>
+            <span>写真読取</span>
+        </button>
         <button class="nav-item" data-view="areas">
             <i class="fas fa-map-marked-alt"></i>
             <span>地域設定</span>
@@ -58,6 +62,10 @@
         <button class="nav-item" data-view="wastetypes">
             <i class="fas fa-recycle"></i>
             <span>ゴミ種類</span>
+        </button>
+        <button class="nav-item" data-view="themes">
+            <i class="fas fa-palette"></i>
+            <span>カラー設定</span>
         </button>
     </nav>
 
@@ -86,7 +94,6 @@
                         <option value="">すべて</option>
                         <option value="未収集">未収集</option>
                         <option value="収集済み">収集済み</option>
-                        <option value="保留">保留</option>
                     </select>
                 </div>
                 <div class="filter-group search-group">
@@ -121,6 +128,9 @@
         <section class="view" id="addView">
             <div class="view-header">
                 <h2>新規収集依頼登録</h2>
+                <button type="button" class="btn btn-secondary" id="bulkImportBtn">
+                    <i class="fas fa-file-upload"></i> CSV一括登録
+                </button>
             </div>
 
             <form class="form" id="addForm">
@@ -201,6 +211,20 @@
                 <h2>写真から情報読み取り</h2>
             </div>
 
+            <!-- 撮影ガイド -->
+            <div class="info-box" style="margin-bottom: 1.5rem;">
+                <i class="fas fa-lightbulb"></i>
+                <div>
+                    <strong>📸 きれいに読み取るコツ</strong>
+                    <ul style="margin: 0.5rem 0 0 1.5rem; font-size: 0.875rem;">
+                        <li>明るい場所で撮影する</li>
+                        <li>用紙全体が写るように撮る</li>
+                        <li>ピントを合わせてブレないように</li>
+                        <li>影や反射を避ける</li>
+                    </ul>
+                </div>
+            </div>
+
             <div class="ocr-container">
                 <div class="upload-area" id="uploadArea">
                     <i class="fas fa-camera upload-icon"></i>
@@ -242,20 +266,24 @@
                     </div>
                     
                     <h3>読み取り結果</h3>
+                    <p class="view-subtitle" style="color: var(--text-secondary);">内容を確認して、必要に応じて修正してください</p>
                     <form class="form" id="ocrForm">
                         <div class="form-group">
                             <label for="ocrName">依頼者名 <span class="required">*</span></label>
                             <input type="text" id="ocrName" class="form-control" required>
+                            <small class="form-help" id="ocrNameConfidence" style="color: var(--text-secondary);"></small>
                         </div>
 
                         <div class="form-group">
                             <label for="ocrAddress">住所 <span class="required">*</span></label>
                             <input type="text" id="ocrAddress" class="form-control" value="兵庫県西宮市" placeholder="例: 兵庫県西宮市神原15-15-104" required>
+                            <small class="form-help" id="ocrAddressConfidence" style="color: var(--text-secondary);"></small>
                         </div>
 
                         <div class="form-group">
                             <label for="ocrStartDate">収集開始日 <span class="required">*</span></label>
                             <input type="date" id="ocrStartDate" class="form-control" required>
+                            <small class="form-help" id="ocrDateConfidence" style="color: var(--text-secondary);"></small>
                         </div>
 
                         <!-- 可燃収集 -->
@@ -332,7 +360,6 @@
                         <option value="">すべて</option>
                         <option value="未収集">未収集</option>
                         <option value="収集済み">収集済み</option>
-                        <option value="保留">保留</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -374,6 +401,61 @@
             </div>
         </section>
 
+        <!-- 収集確認ビュー -->
+        <section class="view" id="confirmationView">
+            <div class="view-header">
+                <h2>収集確認</h2>
+                <p class="view-subtitle">日付と号車で未収集の依頼を確認できます</p>
+            </div>
+
+            <!-- フィルター -->
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="confirmDate">収集日</label>
+                    <input type="date" id="confirmDate" class="form-control">
+                </div>
+                <div class="filter-group">
+                    <label for="confirmVehicle">号車</label>
+                    <select id="confirmVehicle" class="form-control">
+                        <option value="">すべて</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button class="btn btn-primary" id="confirmSearchBtn">
+                        <i class="fas fa-search"></i> 検索
+                    </button>
+                </div>
+            </div>
+
+            <!-- 統計 -->
+            <div class="stats-section" id="confirmStatsSection">
+                <div class="stat-card">
+                    <div class="stat-label">対象件数</div>
+                    <div class="stat-value" id="confirmTotal">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">未収集</div>
+                    <div class="stat-value" style="color: var(--warning-color);" id="confirmPending">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">収集済み</div>
+                    <div class="stat-value" style="color: var(--success-color);" id="confirmCompleted">0</div>
+                </div>
+            </div>
+
+            <!-- 一括操作 -->
+            <div style="margin: 1rem 0; display: flex; gap: 0.5rem;">
+                <button class="btn btn-success" id="markAllCompletedBtn">
+                    <i class="fas fa-check-double"></i> すべて収集済みにする
+                </button>
+            </div>
+
+            <!-- 収集リスト -->
+            <div class="collection-list" id="confirmationList">
+                <!-- JavaScriptで動的に生成 -->
+            </div>
+        </section>
+
         <!-- 地域設定ビュー -->
         <section class="view" id="areasView">
             <div class="view-header">
@@ -409,6 +491,130 @@
 
             <div class="waste-type-list" id="wasteTypeList">
                 <!-- JavaScriptで動的に生成 -->
+            </div>
+        </section>
+
+        <!-- カラーテーマビュー -->
+        <section class="view" id="themesView">
+            <div class="view-header">
+                <h2>カラーテーマ設定</h2>
+                <p class="view-subtitle">お好みの色テーマを選択してください</p>
+            </div>
+
+            <div class="themes-grid">
+                <!-- 爽やかな黄緑 -->
+                <div class="theme-card" data-theme="green">
+                    <div class="theme-preview">
+                        <div class="theme-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);"></div>
+                        <div class="theme-body">
+                            <div class="theme-sample theme-sample-primary" style="background: #10b981;"></div>
+                            <div class="theme-sample theme-sample-success" style="background: #10b981;"></div>
+                            <div class="theme-sample theme-sample-bg" style="background: #f0fdf4;"></div>
+                        </div>
+                    </div>
+                    <div class="theme-info">
+                        <h3 class="theme-name">爽やかな黄緑</h3>
+                        <p class="theme-description">明るく元気な印象</p>
+                    </div>
+                    <button class="btn btn-primary theme-select-btn" onclick="applyTheme('green')">
+                        <i class="fas fa-check"></i> 適用
+                    </button>
+                </div>
+
+                <!-- クールブルー -->
+                <div class="theme-card" data-theme="blue">
+                    <div class="theme-preview">
+                        <div class="theme-header" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);"></div>
+                        <div class="theme-body">
+                            <div class="theme-sample theme-sample-primary" style="background: #2563eb;"></div>
+                            <div class="theme-sample theme-sample-success" style="background: #10b981;"></div>
+                            <div class="theme-sample theme-sample-bg" style="background: #f0f9ff;"></div>
+                        </div>
+                    </div>
+                    <div class="theme-info">
+                        <h3 class="theme-name">クールブルー</h3>
+                        <p class="theme-description">落ち着いた信頼感</p>
+                    </div>
+                    <button class="btn btn-primary theme-select-btn" onclick="applyTheme('blue')">
+                        <i class="fas fa-check"></i> 適用
+                    </button>
+                </div>
+
+                <!-- サンセットオレンジ -->
+                <div class="theme-card" data-theme="orange">
+                    <div class="theme-preview">
+                        <div class="theme-header" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);"></div>
+                        <div class="theme-body">
+                            <div class="theme-sample theme-sample-primary" style="background: #f97316;"></div>
+                            <div class="theme-sample theme-sample-success" style="background: #10b981;"></div>
+                            <div class="theme-sample theme-sample-bg" style="background: #fff7ed;"></div>
+                        </div>
+                    </div>
+                    <div class="theme-info">
+                        <h3 class="theme-name">サンセットオレンジ</h3>
+                        <p class="theme-description">温かく活気ある雰囲気</p>
+                    </div>
+                    <button class="btn btn-primary theme-select-btn" onclick="applyTheme('orange')">
+                        <i class="fas fa-check"></i> 適用
+                    </button>
+                </div>
+
+                <!-- ロイヤルパープル -->
+                <div class="theme-card" data-theme="purple">
+                    <div class="theme-preview">
+                        <div class="theme-header" style="background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);"></div>
+                        <div class="theme-body">
+                            <div class="theme-sample theme-sample-primary" style="background: #9333ea;"></div>
+                            <div class="theme-sample theme-sample-success" style="background: #10b981;"></div>
+                            <div class="theme-sample theme-sample-bg" style="background: #faf5ff;"></div>
+                        </div>
+                    </div>
+                    <div class="theme-info">
+                        <h3 class="theme-name">ロイヤルパープル</h3>
+                        <p class="theme-description">高級感のある上品さ</p>
+                    </div>
+                    <button class="btn btn-primary theme-select-btn" onclick="applyTheme('purple')">
+                        <i class="fas fa-check"></i> 適用
+                    </button>
+                </div>
+
+                <!-- フレッシュピンク -->
+                <div class="theme-card" data-theme="pink">
+                    <div class="theme-preview">
+                        <div class="theme-header" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);"></div>
+                        <div class="theme-body">
+                            <div class="theme-sample theme-sample-primary" style="background: #ec4899;"></div>
+                            <div class="theme-sample theme-sample-success" style="background: #10b981;"></div>
+                            <div class="theme-sample theme-sample-bg" style="background: #fdf2f8;"></div>
+                        </div>
+                    </div>
+                    <div class="theme-info">
+                        <h3 class="theme-name">フレッシュピンク</h3>
+                        <p class="theme-description">柔らかく親しみやすい</p>
+                    </div>
+                    <button class="btn btn-primary theme-select-btn" onclick="applyTheme('pink')">
+                        <i class="fas fa-check"></i> 適用
+                    </button>
+                </div>
+
+                <!-- シックグレー -->
+                <div class="theme-card" data-theme="gray">
+                    <div class="theme-preview">
+                        <div class="theme-header" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%);"></div>
+                        <div class="theme-body">
+                            <div class="theme-sample theme-sample-primary" style="background: #64748b;"></div>
+                            <div class="theme-sample theme-sample-success" style="background: #10b981;"></div>
+                            <div class="theme-sample theme-sample-bg" style="background: #f8fafc;"></div>
+                        </div>
+                    </div>
+                    <div class="theme-info">
+                        <h3 class="theme-name">シックグレー</h3>
+                        <p class="theme-description">シンプルで洗練された</p>
+                    </div>
+                    <button class="btn btn-primary theme-select-btn" onclick="applyTheme('gray')">
+                        <i class="fas fa-check"></i> 適用
+                    </button>
+                </div>
             </div>
         </section>
     </main>
@@ -485,7 +691,6 @@
                     <select id="editStatus" class="form-control" required>
                         <option value="未収集">未収集</option>
                         <option value="収集済み">収集済み</option>
-                        <option value="保留">保留</option>
                     </select>
                 </div>
 
@@ -636,6 +841,50 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- CSV一括登録モーダル -->
+    <div class="modal" id="bulkImportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>CSV一括登録</h3>
+                <button class="modal-close" id="bulkImportModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div class="info-box" style="margin-bottom: 1.5rem;">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <p><strong>CSVファイル形式:</strong></p>
+                        <p style="margin: 0.5rem 0;">名前,住所,電話番号,開始日,ゴミ種類</p>
+                        <p style="margin: 0; font-size: 0.875rem; color: var(--text-secondary);">例: 田中太郎,兵庫県西宮市神原1-1-1,090-1234-5678,2026-02-25,一般ゴミ</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="csvFile">CSVファイル</label>
+                    <input type="file" id="csvFile" class="form-control" accept=".csv">
+                </div>
+
+                <div id="csvPreview" style="display: none; margin-top: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;">プレビュー</h4>
+                    <div id="csvPreviewContent"></div>
+                    <div style="margin-top: 1rem;">
+                        <strong id="csvCount"></strong>
+                    </div>
+                </div>
+
+                <div class="form-actions" style="margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" id="bulkImportCancelBtn">
+                        キャンセル
+                    </button>
+                    <button type="button" class="btn btn-primary" id="bulkImportExecuteBtn" disabled>
+                        <i class="fas fa-upload"></i> 登録実行
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
