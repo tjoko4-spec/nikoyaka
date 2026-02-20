@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>にこやか収集管理システム</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Leaflet.js for Maps -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="css/style.css?v=1.3.7">
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+    <!-- ヘッダー -->
+    <header class="header">
+        <div class="header-container">
+            <h1 class="header-title">
+                <i class="fas fa-truck"></i>
+                にこやか収集管理
+            </h1>
+            <button class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- ナビゲーション -->
+    <nav class="nav" id="mainNav">
+        <button class="nav-item active" data-view="collection">
+            <i class="fas fa-list"></i>
+            <span>収集一覧</span>
+        </button>
+        <button class="nav-item" data-view="add">
+            <i class="fas fa-plus-circle"></i>
+            <span>新規登録</span>
+        </button>
+        <button class="nav-item" data-view="ocr">
+            <i class="fas fa-camera"></i>
+            <span>写真読取</span>
+        </button>
+        <button class="nav-item" data-view="map">
+            <i class="fas fa-map-marked-alt"></i>
+            <span>地図表示</span>
+        </button>
+        <button class="nav-item" data-view="vehicles">
+            <i class="fas fa-truck-moving"></i>
+            <span>号車管理</span>
+        </button>
+        <button class="nav-item" data-view="areas">
+            <i class="fas fa-map-marked-alt"></i>
+            <span>地域設定</span>
+        </button>
+        <button class="nav-item" data-view="wastetypes">
+            <i class="fas fa-recycle"></i>
+            <span>ゴミ種類</span>
+        </button>
+    </nav>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+        <!-- 収集一覧ビュー -->
+        <section class="view active" id="collectionView">
+            <div class="view-header">
+                <h2>収集依頼一覧</h2>
+                <button class="btn btn-primary" id="refreshBtn">
+                    <i class="fas fa-sync-alt"></i> 更新
+                </button>
+            </div>
+
+            <!-- フィルター -->
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="filterVehicle">号車</label>
+                    <select id="filterVehicle" class="form-control">
+                        <option value="">すべて</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterStatus">ステータス</label>
+                    <select id="filterStatus" class="form-control">
+                        <option value="">すべて</option>
+                        <option value="未収集">未収集</option>
+                        <option value="収集済み">収集済み</option>
+                        <option value="保留">保留</option>
+                    </select>
+                </div>
+                <div class="filter-group search-group">
+                    <label for="searchInput">検索</label>
+                    <input type="text" id="searchInput" class="form-control" placeholder="名前・住所で検索">
+                </div>
+            </div>
+
+            <!-- 統計情報 -->
+            <div class="stats-section" id="statsSection">
+                <div class="stat-card">
+                    <div class="stat-label">総件数</div>
+                    <div class="stat-value" id="totalCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">未収集</div>
+                    <div class="stat-value" id="pendingCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">収集済み</div>
+                    <div class="stat-value" id="completedCount">0</div>
+                </div>
+            </div>
+
+            <!-- 収集リスト -->
+            <div class="collection-list" id="collectionList">
+                <!-- JavaScriptで動的に生成 -->
+            </div>
+        </section>
+
+        <!-- 新規登録ビュー -->
+        <section class="view" id="addView">
+            <div class="view-header">
+                <h2>新規収集依頼登録</h2>
+            </div>
+
+            <form class="form" id="addForm">
+                <div class="form-group">
+                    <label for="addName">依頼者名 <span class="required">*</span></label>
+                    <input type="text" id="addName" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="addAddress">住所 <span class="required">*</span></label>
+                    <input type="text" id="addAddress" class="form-control" value="兵庫県西宮市" placeholder="例: 兵庫県西宮市神原15-15-104" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="addStartDate">収集開始日 <span class="required">*</span></label>
+                    <input type="date" id="addStartDate" class="form-control" required>
+                </div>
+
+                <!-- 可燃収集 -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-fire"></i> 可燃収集 (必須)
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label>可燃収集曜日 <span class="required">*</span></label>
+                        <div class="schedule-grid" id="addBurnableSchedule">
+                            <!-- JavaScriptで動的に生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 不燃収集 -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-recycle"></i> 不燃収集
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label checkbox-label-large">
+                            <input type="checkbox" id="addNonBurnable">
+                            <span>不燃収集あり</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group" id="addNonBurnableScheduleContainer" style="display: none;">
+                        <label>不燃収集曜日 <span class="required">*</span></label>
+                        <div class="schedule-grid" id="addNonBurnableSchedule">
+                            <!-- JavaScriptで動的に生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="addVehicle">担当号車 <span class="required">*</span></label>
+                    <select id="addVehicle" class="form-control" required>
+                        <option value="">自動割り当て</option>
+                    </select>
+                    <small class="form-help">空欄の場合は住所から自動で割り当てられます</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="addNotes">備考</label>
+                    <textarea id="addNotes" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-save"></i> 登録
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- OCRビュー -->
+        <section class="view" id="ocrView">
+            <div class="view-header">
+                <h2>写真から情報読み取り</h2>
+            </div>
+
+            <div class="ocr-container">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-camera upload-icon"></i>
+                    <p>写真を撮影またはアップロード</p>
+                    <input type="file" id="ocrFileInput" accept="image/*" hidden>
+                    <input type="file" id="ocrCameraInput" accept="image/*" capture="environment" hidden>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+                        <button type="button" class="btn btn-primary" id="ocrUploadBtn">
+                            <i class="fas fa-image"></i> 画像を選択
+                        </button>
+                        <button type="button" class="btn btn-primary" id="ocrCameraBtn">
+                            <i class="fas fa-camera"></i> カメラで撮影
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ocr-preview" id="ocrPreview" style="display: none;">
+                    <img id="ocrImage" alt="アップロード画像">
+                    <div class="ocr-actions">
+                        <button type="button" class="btn btn-secondary" id="ocrCancelBtn">
+                            <i class="fas fa-times"></i> キャンセル
+                        </button>
+                        <button type="button" class="btn btn-primary" id="ocrProcessBtn">
+                            <i class="fas fa-magic"></i> 読み取り開始
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ocr-progress" id="ocrProgress" style="display: none;">
+                    <div class="spinner"></div>
+                    <p id="ocrProgressText">画像を解析中...</p>
+                </div>
+
+                <div class="ocr-result" id="ocrResult" style="display: none;">
+                    <!-- デバッグ情報 -->
+                    <div id="ocrDebugInfo" style="background: #f0f0f0; padding: 15px; margin-bottom: 20px; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto;">
+                        <strong>🔍 OCR認識結果（デバッグ用）</strong>
+                        <div id="ocrDebugText" style="white-space: pre-wrap; margin-top: 10px;"></div>
+                    </div>
+                    
+                    <h3>読み取り結果</h3>
+                    <form class="form" id="ocrForm">
+                        <div class="form-group">
+                            <label for="ocrName">依頼者名 <span class="required">*</span></label>
+                            <input type="text" id="ocrName" class="form-control" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ocrAddress">住所 <span class="required">*</span></label>
+                            <input type="text" id="ocrAddress" class="form-control" value="兵庫県西宮市" placeholder="例: 兵庫県西宮市神原15-15-104" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ocrStartDate">収集開始日 <span class="required">*</span></label>
+                            <input type="date" id="ocrStartDate" class="form-control" required>
+                        </div>
+
+                        <!-- 可燃収集 -->
+                        <div class="form-group">
+                            <label class="checkbox-label checkbox-label-large">
+                                <input type="checkbox" id="ocrCombustible" checked>
+                                <span>🔥 可燃収集あり</span>
+                            </label>
+                        </div>
+
+                        <div id="ocrCombustibleScheduleContainer" class="form-group" style="display: block;">
+                            <label>可燃収集の曜日 <span class="required">*</span></label>
+                            <div id="ocrCombustibleSchedule" class="schedule-grid"></div>
+                        </div>
+
+                        <!-- 不燃収集 -->
+                        <div class="form-group">
+                            <label class="checkbox-label checkbox-label-large">
+                                <input type="checkbox" id="ocrNonCombustible">
+                                <span>♻️ 不燃収集あり</span>
+                            </label>
+                        </div>
+
+                        <div id="ocrNonCombustibleScheduleContainer" class="form-group" style="display: none;">
+                            <label>不燃収集の曜日 <span class="required">*</span></label>
+                            <div id="ocrNonCombustibleSchedule" class="schedule-grid"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ocrVehicle">担当号車 <span class="required">*</span></label>
+                            <select id="ocrVehicle" class="form-control" required>
+                                <option value="">自動割り当て</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ocrNotes">備考</label>
+                            <textarea id="ocrNotes" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" id="ocrResetBtn">
+                                <i class="fas fa-redo"></i> 最初から
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 登録
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- 地図表示ビュー -->
+        <section class="view" id="mapView">
+            <div class="view-header">
+                <h2>収集場所マップ</h2>
+                <button class="btn btn-primary" id="refreshMapBtn">
+                    <i class="fas fa-sync-alt"></i> 更新
+                </button>
+            </div>
+
+            <!-- 地図フィルター -->
+            <div class="map-filter-section">
+                <div class="filter-group">
+                    <label for="mapFilterVehicle">号車</label>
+                    <select id="mapFilterVehicle" class="form-control">
+                        <option value="">すべて</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="mapFilterStatus">ステータス</label>
+                    <select id="mapFilterStatus" class="form-control">
+                        <option value="">すべて</option>
+                        <option value="未収集">未収集</option>
+                        <option value="収集済み">収集済み</option>
+                        <option value="保留">保留</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button class="btn btn-secondary" id="showCurrentLocation">
+                        <i class="fas fa-location-arrow"></i> 現在地
+                    </button>
+                </div>
+            </div>
+
+            <!-- 凡例 -->
+            <div class="map-legend">
+                <div class="legend-title">凡例</div>
+                <div class="legend-items" id="mapLegend">
+                    <!-- JavaScriptで動的に生成 -->
+                </div>
+            </div>
+
+            <!-- 地図コンテナ -->
+            <div id="map" class="map-container"></div>
+
+            <!-- 地図の説明 -->
+            <div class="info-box" style="margin-top: 1rem;">
+                <i class="fas fa-info-circle"></i>
+                <p>ピンをクリックすると収集依頼の詳細が表示されます。号車ごとに色分けされています。</p>
+            </div>
+        </section>
+
+        <!-- 号車管理ビュー -->
+        <section class="view" id="vehiclesView">
+            <div class="view-header">
+                <h2>号車管理</h2>
+                <button class="btn btn-primary" id="addVehicleBtn">
+                    <i class="fas fa-plus"></i> 号車追加
+                </button>
+            </div>
+
+            <div class="vehicle-list" id="vehicleList">
+                <!-- JavaScriptで動的に生成 -->
+            </div>
+        </section>
+
+        <!-- 地域設定ビュー -->
+        <section class="view" id="areasView">
+            <div class="view-header">
+                <h2>地域別号車設定</h2>
+                <button class="btn btn-primary" id="addAreaRuleBtn">
+                    <i class="fas fa-plus"></i> ルール追加
+                </button>
+            </div>
+
+            <div class="info-box">
+                <i class="fas fa-info-circle"></i>
+                <p>住所に含まれる地域パターンで自動的に号車を割り当てます。優先順位が小さいほど優先されます。</p>
+            </div>
+
+            <div class="area-rule-list" id="areaRuleList">
+                <!-- JavaScriptで動的に生成 -->
+            </div>
+        </section>
+
+        <!-- ゴミ種類管理ビュー -->
+        <section class="view" id="wastetypesView">
+            <div class="view-header">
+                <h2>ゴミ種類管理</h2>
+                <button class="btn btn-primary" id="addWasteTypeBtn">
+                    <i class="fas fa-plus"></i> 種類追加
+                </button>
+            </div>
+
+            <div class="info-box">
+                <i class="fas fa-info-circle"></i>
+                <p>4月など年度の変わり目でゴミの種類が変更される場合、新しい種類を追加し、古い種類に有効期限を設定できます。</p>
+            </div>
+
+            <div class="waste-type-list" id="wasteTypeList">
+                <!-- JavaScriptで動的に生成 -->
+            </div>
+        </section>
+    </main>
+
+    <!-- 編集モーダル -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>収集依頼編集</h3>
+                <button class="modal-close" id="editModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form class="form" id="editForm">
+                <input type="hidden" id="editId">
+                
+                <div class="form-group">
+                    <label for="editName">依頼者名 <span class="required">*</span></label>
+                    <input type="text" id="editName" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editAddress">住所 <span class="required">*</span></label>
+                    <input type="text" id="editAddress" class="form-control" placeholder="例: 兵庫県西宮市神原15-15-104" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editStartDate">収集開始日 <span class="required">*</span></label>
+                    <input type="date" id="editStartDate" class="form-control" required>
+                </div>
+
+                <!-- 可燃収集 -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-fire"></i> 可燃収集 (必須)
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label>可燃収集曜日 <span class="required">*</span></label>
+                        <div class="schedule-grid" id="editBurnableSchedule">
+                            <!-- JavaScriptで動的に生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 不燃収集 -->
+                <div class="form-section">
+                    <h3 class="form-section-title">
+                        <i class="fas fa-recycle"></i> 不燃収集
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label checkbox-label-large">
+                            <input type="checkbox" id="editNonBurnable">
+                            <span>不燃収集あり</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group" id="editNonBurnableScheduleContainer" style="display: none;">
+                        <label>不燃収集曜日 <span class="required">*</span></label>
+                        <div class="schedule-grid" id="editNonBurnableSchedule">
+                            <!-- JavaScriptで動的に生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editVehicle">担当号車 <span class="required">*</span></label>
+                    <select id="editVehicle" class="form-control" required></select>
+                </div>
+
+                <div class="form-group">
+                    <label for="editStatus">ステータス <span class="required">*</span></label>
+                    <select id="editStatus" class="form-control" required>
+                        <option value="未収集">未収集</option>
+                        <option value="収集済み">収集済み</option>
+                        <option value="保留">保留</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="editNotes">備考</label>
+                    <textarea id="editNotes" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="editCancelBtn">
+                        キャンセル
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 更新
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 号車追加/編集モーダル -->
+    <div class="modal" id="vehicleModal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 id="vehicleModalTitle">号車追加</h3>
+                <button class="modal-close" id="vehicleModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form class="form" id="vehicleForm">
+                <input type="hidden" id="vehicleId">
+                
+                <div class="form-group">
+                    <label for="vehicleNumber">号車名 <span class="required">*</span></label>
+                    <input type="text" id="vehicleNumber" class="form-control" required placeholder="例: 33号車">
+                </div>
+
+                <div class="form-group">
+                    <label>稼働スケジュール</label>
+                    <div class="schedule-grid" id="vehicleSchedule">
+                        <!-- JavaScriptで動的に生成 -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="vehicleColor">マーカーの色 <span class="required">*</span></label>
+                    <div class="color-picker-container">
+                        <input type="color" id="vehicleColor" class="color-input" value="#2563eb" required>
+                        <input type="text" id="vehicleColorText" class="form-control color-text" value="#2563eb" pattern="^#[0-9A-Fa-f]{6}$" required>
+                    </div>
+                    <small class="form-help">地図上のピンの色を設定します</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="vehicleCancelBtn">
+                        キャンセル
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 地域ルール追加/編集モーダル -->
+    <div class="modal" id="areaRuleModal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 id="areaRuleModalTitle">地域ルール追加</h3>
+                <button class="modal-close" id="areaRuleModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form class="form" id="areaRuleForm">
+                <input type="hidden" id="areaRuleId">
+                
+                <div class="form-group">
+                    <label for="areaPattern">地域パターン <span class="required">*</span></label>
+                    <input type="text" id="areaPattern" class="form-control" required placeholder="例: 中央町、北区">
+                    <small class="form-help">住所に含まれる文字列を指定</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="areaVehicle">担当号車 <span class="required">*</span></label>
+                    <select id="areaVehicle" class="form-control" required></select>
+                </div>
+
+                <div class="form-group">
+                    <label for="areaPriority">優先順位 <span class="required">*</span></label>
+                    <input type="number" id="areaPriority" class="form-control" required value="1" min="1">
+                    <small class="form-help">数値が小さいほど優先されます</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="areaRuleCancelBtn">
+                        キャンセル
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ゴミ種類追加/編集モーダル -->
+    <div class="modal" id="wasteTypeModal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 id="wasteTypeModalTitle">ゴミ種類追加</h3>
+                <button class="modal-close" id="wasteTypeModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form class="form" id="wasteTypeForm">
+                <input type="hidden" id="wasteTypeId">
+                
+                <div class="form-group">
+                    <label for="wasteTypeName">ゴミの種類名 <span class="required">*</span></label>
+                    <input type="text" id="wasteTypeName" class="form-control" required placeholder="例: 粗大ゴミ">
+                </div>
+
+                <div class="form-group">
+                    <label for="wasteDisplayOrder">表示順序 <span class="required">*</span></label>
+                    <input type="number" id="wasteDisplayOrder" class="form-control" required value="1" min="1">
+                    <small class="form-help">数値が小さいほど上に表示されます</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="wasteValidFrom">有効開始日</label>
+                    <input type="date" id="wasteValidFrom" class="form-control">
+                    <small class="form-help">空欄の場合は常に有効です</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="wasteValidUntil">有効終了日</label>
+                    <input type="date" id="wasteValidUntil" class="form-control">
+                    <small class="form-help">4月で変更する場合などに設定します</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="wasteTypeCancelBtn">
+                        キャンセル
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- トーストメッセージ -->
+    <div class="toast" id="toast"></div>
+
+    <!-- JavaScript -->
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/supabase-api.js"></script>
+    <script src="js/app.js?v=1.3.7"></script>
+</body>
+</html>
